@@ -1,0 +1,922 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>مُستخرِج بيانات العقود — أداة تحضير الجلسات</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Amiri:wght@400;700&family=Cairo:wght@300;400;600;700;900&display=swap" rel="stylesheet">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+<style>
+  :root {
+    --green-deep: #0F4C3A;
+    --green-ink: #0A3528;
+    --gold: #C8A96A;
+    --gold-light: #E8D5A8;
+    --cream: #FAF6EE;
+    --cream-dark: #F0E9D6;
+    --paper: #FFFDF8;
+    --ink: #1A1612;
+    --muted: #6B6056;
+    --danger: #A83E3E;
+    --danger-bg: #FBEDED;
+    --ok: #2E7D4F;
+    --ok-bg: #E8F3EC;
+    --shadow: 0 2px 4px rgba(15, 76, 58, 0.06), 0 8px 24px rgba(15, 76, 58, 0.08);
+  }
+
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+
+  html, body {
+    font-family: 'Cairo', 'Segoe UI', sans-serif;
+    background: var(--cream);
+    color: var(--ink);
+    font-size: 15px;
+    line-height: 1.7;
+    min-height: 100vh;
+  }
+
+  body {
+    background-image:
+      radial-gradient(circle at 10% 10%, rgba(200, 169, 106, 0.08) 0%, transparent 40%),
+      radial-gradient(circle at 90% 90%, rgba(15, 76, 58, 0.06) 0%, transparent 40%),
+      repeating-linear-gradient(45deg, transparent 0, transparent 40px, rgba(200, 169, 106, 0.015) 40px, rgba(200, 169, 106, 0.015) 41px);
+  }
+
+  .wrapper { max-width: 1280px; margin: 0 auto; padding: 24px 24px 48px; }
+
+  .header-badge {
+    display: inline-flex; align-items: center; gap: 8px;
+    padding: 6px 14px;
+    background: var(--green-deep);
+    color: var(--gold-light);
+    font-size: 12px;
+    letter-spacing: 1px;
+    border-radius: 2px;
+    margin-bottom: 16px;
+  }
+  .header-badge::before {
+    content: '';
+    width: 6px; height: 6px;
+    background: var(--gold);
+    border-radius: 50%;
+  }
+  h1 {
+    font-family: 'Amiri', serif;
+    font-size: 42px;
+    font-weight: 700;
+    color: var(--green-ink);
+    line-height: 1.2;
+    margin-bottom: 8px;
+  }
+  h1 .accent { color: var(--gold); }
+  .subtitle {
+    font-size: 16px;
+    color: var(--muted);
+    max-width: 720px;
+  }
+
+  /* === Cards === */
+  .card {
+    background: var(--paper);
+    border: 1px solid var(--cream-dark);
+    border-radius: 4px;
+    padding: 28px;
+    margin-bottom: 24px;
+    box-shadow: var(--shadow);
+  }
+  .card-title {
+    display: flex; align-items: center; gap: 12px;
+    font-family: 'Amiri', serif;
+    font-size: 24px;
+    font-weight: 700;
+    color: var(--green-ink);
+    margin-bottom: 20px;
+    padding-bottom: 14px;
+    border-bottom: 1px dashed var(--gold);
+  }
+  .card-title .num {
+    display: inline-flex;
+    align-items: center; justify-content: center;
+    width: 36px; height: 36px;
+    background: var(--green-deep);
+    color: var(--gold-light);
+    font-family: 'Cairo', sans-serif;
+    font-size: 18px;
+    font-weight: 700;
+    border-radius: 50%;
+  }
+
+  /* === Textarea === */
+  textarea {
+    width: 100%;
+    min-height: 220px;
+    padding: 20px;
+    font-family: 'Cairo', sans-serif;
+    font-size: 15px;
+    line-height: 2;
+    background: var(--cream);
+    border: 1px solid var(--cream-dark);
+    border-radius: 4px;
+    color: var(--ink);
+    resize: vertical;
+    direction: rtl;
+    transition: border-color 0.2s, box-shadow 0.2s;
+  }
+  textarea:focus {
+    outline: none;
+    border-color: var(--gold);
+    box-shadow: 0 0 0 3px rgba(200, 169, 106, 0.15);
+  }
+
+  /* === Buttons === */
+  .btn-row { display: flex; gap: 12px; flex-wrap: wrap; margin-top: 18px; }
+  .btn {
+    display: inline-flex; align-items: center; gap: 8px;
+    padding: 12px 24px;
+    font-family: 'Cairo', sans-serif;
+    font-size: 15px;
+    font-weight: 600;
+    border: none;
+    border-radius: 3px;
+    cursor: pointer;
+    transition: all 0.2s;
+    text-decoration: none;
+  }
+  .btn-primary {
+    background: var(--green-deep);
+    color: var(--gold-light);
+    box-shadow: 0 2px 6px rgba(15, 76, 58, 0.2);
+  }
+  .btn-primary:hover {
+    background: var(--green-ink);
+    transform: translateY(-1px);
+    box-shadow: 0 4px 12px rgba(15, 76, 58, 0.3);
+  }
+  .btn-secondary {
+    background: transparent;
+    color: var(--green-deep);
+    border: 1px solid var(--green-deep);
+  }
+  .btn-secondary:hover { background: var(--green-deep); color: var(--gold-light); }
+  .btn-gold {
+    background: var(--gold);
+    color: var(--green-ink);
+    box-shadow: 0 2px 6px rgba(200, 169, 106, 0.3);
+  }
+  .btn-gold:hover {
+    background: var(--green-ink);
+    color: var(--gold-light);
+    transform: translateY(-1px);
+  }
+  .btn-ghost {
+    background: transparent;
+    color: var(--muted);
+    border: 1px solid var(--cream-dark);
+  }
+  .btn-ghost:hover { background: var(--cream-dark); color: var(--ink); }
+
+  /* === Stats === */
+  .stats {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+    gap: 16px;
+    margin-bottom: 20px;
+  }
+  .stat {
+    text-align: center;
+    padding: 16px;
+    background: var(--cream);
+    border-radius: 3px;
+    border-right: 3px solid var(--gold);
+  }
+  .stat-value {
+    font-family: 'Amiri', serif;
+    font-size: 32px;
+    font-weight: 700;
+    color: var(--green-ink);
+    line-height: 1;
+  }
+  .stat-label {
+    font-size: 12px;
+    color: var(--muted);
+    margin-top: 6px;
+    letter-spacing: 0.5px;
+  }
+
+  /* === Table === */
+  .table-wrap {
+    overflow-x: auto;
+    border-radius: 4px;
+    border: 1px solid var(--cream-dark);
+  }
+  table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 14px;
+    background: var(--paper);
+  }
+  thead {
+    background: var(--green-deep);
+  }
+  thead th {
+    padding: 14px 12px;
+    text-align: right;
+    font-weight: 700;
+    color: var(--gold-light);
+    font-size: 13px;
+    letter-spacing: 0.5px;
+    border-left: 1px solid rgba(200, 169, 106, 0.2);
+    white-space: nowrap;
+  }
+  thead th:first-child { border-right: none; }
+  thead th.idx {
+    width: 48px;
+    text-align: center;
+    background: var(--green-ink);
+  }
+
+  tbody tr {
+    border-bottom: 1px solid var(--cream-dark);
+    transition: background 0.15s;
+  }
+  tbody tr:hover { background: var(--cream); }
+  tbody tr.flagged { background: var(--danger-bg); }
+  tbody tr.flagged:hover { background: #F7DFDF; }
+
+  tbody td {
+    padding: 12px;
+    vertical-align: middle;
+    border-left: 1px solid var(--cream-dark);
+  }
+  tbody td.idx {
+    text-align: center;
+    font-weight: 700;
+    color: var(--gold);
+    background: var(--cream);
+    font-family: 'Amiri', serif;
+    font-size: 16px;
+  }
+  tbody td[contenteditable="true"] {
+    cursor: text;
+    transition: background 0.15s, box-shadow 0.15s;
+  }
+  tbody td[contenteditable="true"]:focus {
+    outline: none;
+    background: var(--ok-bg);
+    box-shadow: inset 0 0 0 2px var(--ok);
+  }
+  tbody td.empty {
+    background: var(--danger-bg);
+    color: var(--danger);
+    font-style: italic;
+  }
+  tbody td.empty::after { content: 'لم يُستخرج'; }
+
+  .row-actions { white-space: nowrap; }
+  .icon-btn {
+    padding: 4px 8px;
+    background: transparent;
+    border: 1px solid transparent;
+    color: var(--muted);
+    cursor: pointer;
+    border-radius: 3px;
+    font-size: 13px;
+    transition: all 0.15s;
+  }
+  .icon-btn:hover { color: var(--danger); border-color: var(--danger); }
+
+  /* === Empty state === */
+  .empty-state {
+    text-align: center;
+    padding: 60px 20px;
+    color: var(--muted);
+  }
+  .empty-state .big-ornament {
+    font-family: 'Amiri', serif;
+    font-size: 64px;
+    color: var(--gold-light);
+    margin-bottom: 12px;
+  }
+
+  /* === Warning banner === */
+  .banner {
+    padding: 14px 18px;
+    border-radius: 3px;
+    margin-bottom: 18px;
+    font-size: 14px;
+    display: none;
+    align-items: center;
+    gap: 10px;
+  }
+  .banner.show { display: flex; }
+  .banner.info {
+    background: var(--ok-bg);
+    color: var(--ok);
+    border-right: 3px solid var(--ok);
+  }
+  .banner.warn {
+    background: var(--danger-bg);
+    color: var(--danger);
+    border-right: 3px solid var(--danger);
+  }
+
+  /* === Footer === */
+  footer.app-footer {
+    text-align: center;
+    padding: 24px;
+    color: var(--muted);
+    font-size: 13px;
+    border-top: 1px dashed var(--gold);
+    margin-top: 24px;
+  }
+  footer .ornament {
+    font-family: 'Amiri', serif;
+    color: var(--gold);
+    font-size: 20px;
+    margin-bottom: 8px;
+  }
+
+  /* === Hero card (دمج الهيدر + إدخال النص في كارد واحد بعمودين) === */
+  .hero-card {
+    display: grid;
+    grid-template-columns: 1fr 1.4fr; /* يمين: المحتوى | يسار: textarea */
+    gap: 32px;
+    align-items: stretch;
+    position: relative;
+    padding: 32px 36px;
+    margin-bottom: 24px;
+    background: var(--paper);
+    border: 1px solid var(--cream-dark);
+    border-radius: 4px;
+    box-shadow: var(--shadow);
+    overflow: hidden;
+  }
+  .hero-card::before {
+    content: '';
+    position: absolute;
+    inset: 8px;
+    border: 1px solid var(--gold);
+    border-radius: 2px;
+    pointer-events: none;
+    opacity: 0.4;
+  }
+  .hero-card::after {
+    content: '';
+    position: absolute;
+    top: 0; right: 0;
+    width: 220px; height: 220px;
+    background: radial-gradient(circle at top right, var(--gold-light) 0%, transparent 60%);
+    opacity: 0.4;
+    pointer-events: none;
+  }
+  .hero-right {
+    position: relative;
+    z-index: 1;
+    display: flex;
+    flex-direction: column;
+    justify-content: space-between;
+    gap: 20px;
+  }
+  .hero-right h1 { font-size: 36px; }
+  .hero-left {
+    position: relative;
+    z-index: 1;
+    display: flex;
+    flex-direction: column;
+  }
+  .hero-left textarea {
+    flex: 1;
+    min-height: 300px;
+    height: 100%;
+  }
+  .hero-right .btn-row {
+    flex-direction: column;
+    gap: 10px;
+    margin-top: 0;
+  }
+  .hero-right .btn {
+    width: 100%;
+    justify-content: center;
+  }
+
+  @media (max-width: 860px) {
+    .hero-card {
+      grid-template-columns: 1fr;
+      padding: 24px;
+    }
+    .hero-right .btn-row { flex-direction: row; flex-wrap: wrap; }
+    .hero-right .btn { width: auto; }
+  }
+
+  @media (max-width: 720px) {
+    h1 { font-size: 32px; }
+    .card, .hero-card { padding: 20px; }
+    .wrapper { padding: 16px; }
+  }
+</style>
+</head>
+<body>
+<div class="wrapper">
+
+  <section class="hero-card">
+    <div class="hero-right">
+      <div>
+        <div class="header-badge">تحضير جلسات · استخراج آلي</div>
+        <h1>مُستخرِج <span class="accent">بيانات العقود</span></h1>
+        <p class="subtitle">
+          أداة لتحويل النصوص القضائية متكررة البنية إلى جدول إكسل منظّم.
+        </p>
+      </div>
+      <div class="btn-row">
+        <button class="btn btn-primary" id="btn-process">استخراج البيانات</button>
+        <button class="btn btn-secondary" id="btn-sample">تحميل عيّنة تجريبية</button>
+        <button class="btn btn-ghost" id="btn-clear">مسح المدخلات</button>
+      </div>
+    </div>
+    <div class="hero-left">
+      <textarea id="input" placeholder="الصق هنا النصوص كما تظهر في تبويب (موضوع الدعوى)، وفي حالة أكثر من قضية افصل بين كل نص بسطر فارغ..."></textarea>
+    </div>
+  </section>
+
+  <!-- Results Card -->
+  <section class="card" id="results-card" style="display:none;">
+    <h2 class="card-title">
+      النتائج المستخرجة
+    </h2>
+
+    <div class="banner info" id="banner-ok">
+      <span>✓</span>
+      <span id="banner-ok-text">تم الاستخراج بنجاح.</span>
+    </div>
+    <div class="banner warn" id="banner-warn">
+      <span>⚠</span>
+      <span id="banner-warn-text"></span>
+    </div>
+
+    <div class="stats" id="stats"></div>
+
+    <div class="table-wrap">
+      <table id="results-table">
+        <thead>
+          <tr>
+            <th class="idx">#</th>
+            <th>نوع المطالبة وعددها</th>
+            <th>البيِّنات في الدعوى</th>
+            <th>أول يوم عمل</th>
+            <th>آخر يوم عمل</th>
+            <th>مقدار الأجر</th>
+            <th>سبب انتهاء العلاقة</th>
+            <th style="width:60px;"></th>
+          </tr>
+        </thead>
+        <tbody id="results-body"></tbody>
+      </table>
+    </div>
+
+    <div class="btn-row">
+      <button class="btn btn-gold" id="btn-export">⬇ تصدير إلى Excel</button>
+      <button class="btn btn-secondary" id="btn-copy">📋 نسخ الجدول كاملاً</button>
+      <button class="btn btn-secondary" id="btn-copy-data">📋 نسخ البيانات فقط</button>
+      <button class="btn btn-ghost" id="btn-reset">مسح النتائج</button>
+    </div>
+    <p style="margin-top:14px; font-size:13px; color:var(--muted);">
+      💡 تستطيع تعديل أي خلية بالنقر عليها مباشرة قبل التصدير.
+    </p>
+  </section>
+
+  <footer class="app-footer">
+    <div class="ornament">❖ ❖ ❖</div>
+    <div>صُنعت بعناية لموظفي تحضير الجلسات — المدينة المنورة</div>
+  </footer>
+</div>
+
+<script>
+/* =========================================================
+   محرك الاستخراج
+   ========================================================= */
+
+const AR_DIGITS = '٠١٢٣٤٥٦٧٨٩';
+const PE_DIGITS = '۰۱۲۳۴۵۶۷۸۹';
+
+function normalizeDigits(str) {
+  if (!str) return str;
+  return str.replace(/[٠-٩]/g, d => AR_DIGITS.indexOf(d).toString())
+            .replace(/[۰-۹]/g, d => PE_DIGITS.indexOf(d).toString());
+}
+
+function parseDate(dateStr, calendar) {
+  if (!dateStr) return '';
+  const eng = normalizeDigits(dateStr).trim();
+  // توقع صيغة YYYY/MM/DD
+  const m = eng.match(/(\d{4})\/(\d{1,2})\/(\d{1,2})/);
+  if (!m) return '';
+  const y = m[1];
+  const mo = m[2].padStart(2, '0');
+  const d = m[3].padStart(2, '0');
+  const iso = `${y}-${mo}-${d}`;
+  // لو هجري نضيف "هـ" عشان يتميز عن الميلادي
+  if (calendar === 'h') return `${iso}هـ`;
+  return iso;
+}
+
+
+function parseAmount(amountStr) {
+  if (!amountStr) return '';
+  const eng = normalizeDigits(amountStr).replace(/,/g, '').replace(/،/g, '').trim();
+  const num = parseFloat(eng);
+  if (isNaN(num)) return '';
+  return Math.round(num);
+}
+
+function cleanReason(raw) {
+  if (!raw) return '';
+  let txt = raw.trim();
+  // إزالة نقاط بداية مثل ": " أو ":"
+  txt = txt.replace(/^[:：]\s*/, '');
+  // إزالة فواصل/نقاط/فراغات ختامية أولاً
+  txt = txt.replace(/\s*[،.,]+\s*$/, '').trim();
+  // إزالة أقواس خارجية (قد تكون الآن في الأطراف بعد إزالة الفاصلة)
+  txt = txt.replace(/^[\(（]\s*/, '').replace(/\s*[\)）]\s*$/, '');
+  // مرّة ثانية احتياطاً
+  txt = txt.replace(/\s*[،.,]+\s*$/, '').trim();
+  return txt;
+}
+
+function splitRecords(text) {
+  // نقسّم على سطر فارغ أو أكثر
+  return text.split(/\n\s*\n+/)
+             .map(s => s.trim())
+             .filter(s => s.length > 0);
+}
+
+function extractRecord(chunk) {
+  const result = {
+    evidence: '',
+    claims: '',
+    startDate: '',
+    endDate: '',
+    salary: '',
+    reason: '',
+    raw: chunk,
+    missing: []
+  };
+
+  // === الأسانيد (ما بين "الأسانيد" و "المشفوعات") - تتعدد بالأسطر ===
+  const evidenceMatches = [...chunk.matchAll(/الأسانيد(?![\u0600-\u06FF])\s*([\s\S]+?)\s*المشفوعات(?![\u0600-\u06FF])/g)];
+  if (evidenceMatches.length > 0) {
+    const allLines = [];
+    evidenceMatches.forEach(m => {
+      // نقسم الكتلة على الأسطر، وننظف كل سطر من الفواصل والنقاط الختامية
+      const lines = m[1].split(/\n+/)
+        .map(l => l.trim())
+        .map(l => l.replace(/\s*[،.]+\s*$/, '').trim())
+        .filter(l => l.length > 0);
+      allLines.push(...lines);
+    });
+    if (allLines.length > 0) {
+      result.evidence = `${allLines.length} ${allLines.join('+')}`;
+    }
+  }
+
+  // === المطالبات (ما بين "الطلب" و "نوع الطلب") ===
+  // الشرط: ألا تكون "الطلب" جزءاً من كلمة أطول مثل "الطلبات"
+  const claimMatches = [...chunk.matchAll(/الطلب(?![\u0600-\u06FF])\s*([\s\S]+?)\s*نوع\s+الطلب(?![\u0600-\u06FF])/g)];
+  const claimsList = claimMatches.map(m => m[1].trim()).filter(s => s.length > 0);
+  if (claimsList.length > 0) {
+    result.claims = `${claimsList.length} ${claimsList.join('+')}`;
+  }
+  // ملاحظة: لا نضيفها للحقول المفقودة، لأنها اختيارية وقد لا توجد في كل سجل
+
+  // === تاريخ المباشرة (أول يوم عمل) ===
+  // الأنماط: "وباشرت العمل بتاريخ ..." / "وباشر العمل بتاريخ ..."
+  // ندعم الميلادي (م) والهجري (هـ)
+  const startRegex = /وباشر(?:ت|)\s+العمل\s+بتاريخ\s*([٠-٩\d\/]+)\s*(م|هـ)/;
+  const startMatch = chunk.match(startRegex);
+  if (startMatch) {
+    const cal = startMatch[2] === 'هـ' ? 'h' : 'g';
+    result.startDate = parseDate(startMatch[1], cal);
+  } else {
+    result.missing.push('أول يوم عمل');
+  }
+
+  // === آخر يوم عمل ===
+  // ندعم الميلادي (م) والهجري (هـ) و"على رأس العمل" للعقود القائمة
+  const endRegex = /وآخر\s+يوم\s+عمل\s+كان\s+بتاريخ\s*([٠-٩\d\/]+)\s*(م|هـ)/;
+  const endMatch = chunk.match(endRegex);
+  // نمط "على رأس العمل" - يعني العقد لا يزال قائم
+  const stillWorkingRegex = /(?:لا\s+(?:أ?زال|يزال|تزال)|ما\s+زال).*?على\s+رأس\s+العمل/;
+  const stillWorkingMatch = chunk.match(stillWorkingRegex);
+
+  if (endMatch) {
+    const cal = endMatch[2] === 'هـ' ? 'h' : 'g';
+    result.endDate = parseDate(endMatch[1], cal);
+  } else if (stillWorkingMatch) {
+    result.endDate = 'على رأس العمل';
+  } else {
+    result.missing.push('آخر يوم عمل');
+  }
+
+  // === مقدار الأجر ===
+  // "على أجر فعلي/أساسي قدره (رقم)"
+  const salaryRegex = /قدره\s*[\(（]\s*([٠-٩\d,،.]+)\s*[\)）]/;
+  const salaryMatch = chunk.match(salaryRegex);
+  if (salaryMatch) {
+    result.salary = parseAmount(salaryMatch[1]);
+  } else {
+    result.missing.push('مقدار الأجر');
+  }
+
+  // === سبب انتهاء العلاقة ===
+  // ناخذ كل شي بعد "بسبب" حتى نهاية السجل (أو قبل الفواصل الختامية)
+  // الشرط: بعد ذكر "آخر يوم عمل"
+  const firstBsbb = chunk.match(/بسبب\s*([^،]+?)\s*(?:،|$)/);
+  let rawReason = '';
+  if (firstBsbb) {
+    rawReason = firstBsbb[1];
+  }
+  const cleaned = cleanReason(rawReason);
+  if (cleaned) {
+    result.reason = cleaned;
+  } else {
+    result.missing.push('سبب انتهاء العلاقة');
+  }
+
+  return result;
+}
+
+function processText(text) {
+  const chunks = splitRecords(text);
+  return chunks.map(extractRecord);
+}
+
+/* =========================================================
+   واجهة المستخدم
+   ========================================================= */
+
+const $ = sel => document.querySelector(sel);
+const inputEl = $('#input');
+const resultsCard = $('#results-card');
+const resultsBody = $('#results-body');
+const statsEl = $('#stats');
+const bannerOk = $('#banner-ok');
+const bannerOkText = $('#banner-ok-text');
+const bannerWarn = $('#banner-warn');
+const bannerWarnText = $('#banner-warn-text');
+
+let currentRecords = [];
+
+const SAMPLE = `موضوع الدعوى
+إن موكلي عمل لدى المنشأة المدعى عليها بمهنة ........، موثق في وزارة الموارد البشرية والتنمية الاجتماعية بتاريخ ٢٠٢٤/٠١/٠١م الموافق ١٤٤٥/٠٦/١٩هـ ومحدد المدة من تاريخ ٢٠٢٤/٠١/٠١م الموافق ١٤٤٥/٠٦/١٩هـ إلى تاريخ ٢٠٢٥/١٢/٣١م الموافق ١٤٤٧/٠٧/١١هـ، وباشر العمل بتاريخ ٢٠١٦/٠١/٠١م الموافق ١٤٣٧/٠٣/٢١هـ، على أجر فعلي قدره (٨,٠٠٠.٠٠) ثمانية آلاف، وآخر يوم عمل كان بتاريخ ٢٠٢٥/١٢/٣١م الموافق ١٤٤٧/٠٧/١١هـ بسبب انتهاء مدة العقد، ونشأ بسبب هذه العلاقة العمالية التالي:
+١- مكافأة نهاية الخدمة لعمله خلال الفترة من ٢٠٢٢/٠١/٠١م الموافق ١٤٤٣/٠٥/٢٨هـ حتى ٢٠٢٥/١٢/٣١م الموافق ١٤٤٧/٠٧/١١هـ، وقدرها (٣٢,٠٠٠.٠٠) اثنان وثلاثون ألفًا.
+٢- تعويض عن رصيد الإجازات السنوية غير المتمتع بها عبارة عن إجازة مستحقة مدتها (١٢٠) مائة وعشرون يوماً.
+٣- بدل سكن عن عام ٢٠٢٢م كاملاً ، وعام ٢٠٢٣م كاملاً ، وعام ٢٠٢٤م كاملاً ، وعام ٢٠٢٥م كاملاً بمبلغ قدره (٩٠٠.٠٠) تسع مئة .
+قائمة الطلبات‎
+الطلب
+مكافأة نهاية خدمة
+نوع الطلب
+مالي
+مبلغ المطالبة
+32000.00
+الطلب
+تسليم أجر الإجازات غير المتمتع بها
+نوع الطلب
+مالي
+مبلغ المطالبة
+32000.00
+الطلب
+البدل
+نوع الطلب
+مالي
+مبلغ المطالبة
+43200.00
+الطلبات
+لذا أطلب إلزام المدعى عليه بـ:
+١- تسليم مكافأة نهاية الخدمة وقدرها (٣٢,٠٠٠.٠٠) اثنان وثلاثون ألفًا .
+٢- تسليم أجر الإجازات المستحقة بمبلغ قدره (٣٢,٠٠٠.٠٠) اثنان وثلاثون ألفًا .
+٣- تسليم البدل وقدره (٤٣,٢٠٠.٠٠) ثلاثة وأربعون ألفًا ومئتان .
+الأسانيد
+عقد العمل
+المشفوعات
+
+موضوع الدعوى
+إن موكلي عمل لدى المنشأة المدعى عليها بمهنة ...... بموجب عقد عمل عادي، موثق في وزارة الموارد البشرية والتنمية الاجتماعية بتاريخ ٢٠٢٤/٠٩/٠٥م الموافق ١٤٤٦/٠٣/٢هـ ومحدد المدة من تاريخ ٢٠٢٤/٠٩/٠٥م الموافق ١٤٤٦/٠٣/٢هـ إلى تاريخ ٢٠٢٥/٠٩/١٧م الموافق ١٤٤٧/٠٣/٢٥هـ، وباشر العمل بتاريخ ٢٠٢٤/٠٩/١٨م الموافق ١٤٤٦/٠٣/١٥هـ، على أجر فعلي قدره (١,٥٠٠.٠٠) ألف وخمس مئة ، وآخر يوم عمل كان بتاريخ ٢٠٢٥/٠٨/٢٥م الموافق ١٤٤٧/٠٣/٢هـ
+بسبب : قيام صاحب العمل بانهاء العقد وفقا للمادة ٧٩، ونشأ بسبب هذه العلاقة العمالية التالي:
+١- رصيد الإجازات السنوية غير المتمتع بها عبارة عن إجازة مستحقة مدتها (٢٠) عشرون يوماً، تتمثل في الآتي: (٦) ستة أيام من عام ٢٠٢٤م، و (١٤) أربعة عشر يوماً من عام ٢٠٢٥م، وإجمالي المبلغ المستحق لذلك (٩٨٧.٠٠) تسع مئة وسبعة وثمانون سعودي.
+2- مكافأة نهاية الخدمة لعمله خلال الفترة من ٢٠٢٤/٠٩/١٨م الموافق ١٤٤٦/٠٣/١٥هـ حتى ٢٠٢٥/٠٨/٢٥م الموافق ١٤٤٧/٠٣/٢هـ، وقدرها (٧٠٦.٠٠) سبع مئة وستة .
+قائمة الطلبات‎
+الطلب
+تسليم أجر الإجازات غير المتمتع بها
+نوع الطلب
+مالي
+مبلغ المطالبة
+987.00
+الطلب
+مكافأة نهاية خدمة
+نوع الطلب
+مالي
+مبلغ المطالبة
+706.00
+الطلبات
+لذا أطلب إلزام المدعى عليه بـ:
+1- تسليم أجر الإجازات المستحقة بمبلغ قدره (٩٨٧.٠٠) تسع مئة وسبعة وثمانون .
+2- تسليم مكافأة نهاية الخدمة وقدرها (٧٠٦.٠٠) سبع مئة وستة .
+الأسانيد
+عقد العمل ورسالة الانهاء وفقا للمادة 79 ومحضر التسوية
+المشفوعات`;
+
+function esc(s) {
+  if (s === '' || s === null || s === undefined) return '';
+  return String(s)
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;');
+}
+
+function render(records) {
+  currentRecords = records;
+  resultsBody.innerHTML = '';
+
+  const flagged = records.filter(r => r.missing.length > 0).length;
+  const ok = records.length - flagged;
+
+  // الإحصائيات
+  statsEl.innerHTML = `
+    <div class="stat">
+      <div class="stat-value">${records.length}</div>
+      <div class="stat-label">إجمالي السجلات</div>
+    </div>
+    <div class="stat">
+      <div class="stat-value" style="color: var(--ok);">${ok}</div>
+      <div class="stat-label">مُستخرَجة كاملة</div>
+    </div>
+    <div class="stat">
+      <div class="stat-value" style="color: var(--danger);">${flagged}</div>
+      <div class="stat-label">تحتاج مراجعة</div>
+    </div>
+  `;
+
+  // البنرات
+  bannerOk.classList.remove('show');
+  bannerWarn.classList.remove('show');
+  if (records.length === 0) {
+    bannerWarn.classList.add('show');
+    bannerWarnText.textContent = 'ما وجدت أي سجل. تأكد من الفصل بسطر فارغ بين كل سجل.';
+  } else if (flagged === 0) {
+    bannerOk.classList.add('show');
+    bannerOkText.textContent = `تم استخراج ${records.length} سجل بنجاح. راجع الجدول وعدّل لو تحتاج.`;
+  } else {
+    bannerWarn.classList.add('show');
+    bannerWarnText.textContent = `${flagged} من ${records.length} سجل فيه حقل مفقود — راجعها في الجدول (الخلايا الحمراء).`;
+  }
+
+  // الصفوف
+  records.forEach((r, i) => {
+    const tr = document.createElement('tr');
+    if (r.missing.length > 0) tr.classList.add('flagged');
+
+    const cellIdx = `<td class="idx">${i + 1}</td>`;
+    const cellEvidence = r.evidence
+      ? `<td contenteditable="true" data-field="evidence">${esc(r.evidence)}</td>`
+      : `<td contenteditable="true" data-field="evidence"></td>`;
+    const cellClaims = r.claims
+      ? `<td contenteditable="true" data-field="claims">${esc(r.claims)}</td>`
+      : `<td contenteditable="true" data-field="claims"></td>`;
+    const cellStart = r.startDate
+      ? `<td contenteditable="true" data-field="startDate">${esc(r.startDate)}</td>`
+      : `<td contenteditable="true" data-field="startDate" class="empty"></td>`;
+    const cellEnd = r.endDate
+      ? `<td contenteditable="true" data-field="endDate">${esc(r.endDate)}</td>`
+      : `<td contenteditable="true" data-field="endDate" class="empty"></td>`;
+    const cellSal = (r.salary !== '' && r.salary !== undefined)
+      ? `<td contenteditable="true" data-field="salary">${esc(r.salary)}</td>`
+      : `<td contenteditable="true" data-field="salary" class="empty"></td>`;
+    const cellReason = r.reason
+      ? `<td contenteditable="true" data-field="reason">${esc(r.reason)}</td>`
+      : `<td contenteditable="true" data-field="reason" class="empty"></td>`;
+    const cellAct = `<td class="row-actions"><button class="icon-btn" data-del="${i}" title="حذف السجل">✕</button></td>`;
+
+     tr.innerHTML = cellIdx + cellClaims + cellEvidence + cellStart + cellEnd + cellSal + cellReason + cellAct;
+    resultsBody.appendChild(tr);
+  });
+
+  // أحداث التحرير
+  resultsBody.querySelectorAll('td[contenteditable="true"]').forEach(cell => {
+    cell.addEventListener('input', () => {
+      const row = cell.closest('tr');
+      const idx = [...resultsBody.children].indexOf(row);
+      const field = cell.dataset.field;
+      const val = cell.textContent.trim();
+      if (val) cell.classList.remove('empty');
+      else cell.classList.add('empty');
+      if (field === 'salary') {
+        currentRecords[idx][field] = val === '' ? '' : Number(val.replace(/,/g, ''));
+      } else {
+        currentRecords[idx][field] = val;
+      }
+    });
+  });
+
+  // حذف
+  resultsBody.querySelectorAll('[data-del]').forEach(btn => {
+    btn.addEventListener('click', () => {
+      const idx = Number(btn.dataset.del);
+      currentRecords.splice(idx, 1);
+      render(currentRecords);
+    });
+  });
+}
+
+/* =========================================================
+   أحداث الأزرار
+   ========================================================= */
+
+$('#btn-process').addEventListener('click', () => {
+  const text = inputEl.value.trim();
+  if (!text) {
+    alert('الصق النصوص أولاً في المربع.');
+    return;
+  }
+  const records = processText(text);
+  resultsCard.style.display = 'block';
+  render(records);
+  resultsCard.scrollIntoView({ behavior: 'smooth', block: 'start' });
+});
+
+$('#btn-sample').addEventListener('click', () => {
+  inputEl.value = SAMPLE;
+  inputEl.focus();
+});
+
+$('#btn-clear').addEventListener('click', () => {
+  inputEl.value = '';
+  inputEl.focus();
+});
+
+$('#btn-reset').addEventListener('click', () => {
+  currentRecords = [];
+  resultsCard.style.display = 'none';
+});
+
+$('#btn-export').addEventListener('click', () => {
+  if (currentRecords.length === 0) return;
+
+  const data = [
+    ['نوع المطالبة وعددها', 'البيِّنات في الدعوى', 'أول يوم عمل', 'آخر يوم عمل', 'مقدار الأجر', 'سبب انتهاء العلاقة'],
+    ...currentRecords.map(r => [r.claims, r.evidence, r.startDate, r.endDate, r.salary, r.reason])
+  ];
+
+  const ws = XLSX.utils.aoa_to_sheet(data);
+  // تعيين اتجاه RTL للورقة
+  ws['!dir'] = 'rtl';
+  // عرض الأعمدة
+  ws['!cols'] = [
+    { wch: 40 }, { wch: 50 }, { wch: 16 }, { wch: 16 }, { wch: 14 }, { wch: 50 }
+  ];
+
+  const wb = XLSX.utils.book_new();
+  wb.Workbook = { Views: [{ RTL: true }] };
+  XLSX.utils.book_append_sheet(wb, ws, 'القضايا');
+
+  const now = new Date();
+  const stamp = `${now.getFullYear()}${String(now.getMonth()+1).padStart(2,'0')}${String(now.getDate()).padStart(2,'0')}`;
+  XLSX.writeFile(wb, `بيانات_العقود_${stamp}.xlsx`);
+});
+
+$('#btn-copy').addEventListener('click', async () => {
+  if (currentRecords.length === 0) return;
+  const header = ['نوع المطالبة وعددها', 'البيِّنات في الدعوى', 'أول يوم عمل', 'آخر يوم عمل', 'مقدار الأجر', 'سبب انتهاء العلاقة'].join('\t');
+  const rows = currentRecords.map(r => [r.claims, r.evidence, r.startDate, r.endDate, r.salary, r.reason].join('\t'));
+  const tsv = [header, ...rows].join('\n');
+  try {
+    await navigator.clipboard.writeText(tsv);
+    const btn = $('#btn-copy');
+    const orig = btn.textContent;
+    btn.textContent = '✓ تم النسخ';
+    setTimeout(() => btn.textContent = orig, 1500);
+  } catch (e) {
+    alert('تعذّر النسخ. انسخ يدوياً.');
+  }
+});
+
+$('#btn-copy-data').addEventListener('click', async () => {
+  if (currentRecords.length === 0) return;
+  // البيانات فقط بدون صف الرؤوس
+  const tsv = currentRecords
+    .map(r => [r.claims, r.evidence, r.startDate, r.endDate, r.salary, r.reason].join('\t'))
+    .join('\n');
+  try {
+    await navigator.clipboard.writeText(tsv);
+    const btn = $('#btn-copy-data');
+    const orig = btn.textContent;
+    btn.textContent = '✓ تم النسخ';
+    setTimeout(() => btn.textContent = orig, 1500);
+  } catch (e) {
+    alert('تعذّر النسخ. انسخ يدوياً.');
+  }
+});
+</script>
+</body>
+</html>
