@@ -7,7 +7,7 @@
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Amiri:wght@400;700&family=Cairo:wght@300;400;600;700;900&display=swap" rel="stylesheet">
-<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/xlsx-js-style@1.2.0/dist/xlsx.bundle.js"></script>
 <style>
   :root {
     --green-deep: #0F4C3A;
@@ -502,13 +502,13 @@ const PE_DIGITS = '۰۱۲۳۴۵۶۷۸۹';
 
 function normalizeDigits(str) {
   if (!str) return str;
-  return str.replace(/[٠-٩]/g, d => AR_DIGITS.indexOf(d).toString())
-            .replace(/[۰-۹]/g, d => PE_DIGITS.indexOf(d).toString());
+  return String(str).replace(/[٠-٩]/g, d => AR_DIGITS.indexOf(d).toString())
+                    .replace(/[۰-۹]/g, d => PE_DIGITS.indexOf(d).toString());
 }
 
 function parseDate(dateStr, calendar) {
   if (!dateStr) return '';
-  const eng = normalizeDigits(dateStr).trim();
+  const eng = normalizeDigits(String(dateStr)).trim();
   // توقع صيغة YYYY/MM/DD
   const m = eng.match(/(\d{4})\/(\d{1,2})\/(\d{1,2})/);
   if (!m) return '';
@@ -524,7 +524,7 @@ function parseDate(dateStr, calendar) {
 
 function parseAmount(amountStr) {
   if (!amountStr) return '';
-  const eng = normalizeDigits(amountStr).replace(/,/g, '').replace(/،/g, '').trim();
+  const eng = normalizeDigits(String(amountStr)).replace(/,/g, '').replace(/،/g, '').trim();
   const num = parseFloat(eng);
   if (isNaN(num)) return '';
   return Math.round(num);
@@ -551,7 +551,10 @@ function splitRecords(text) {
              .filter(s => s.length > 0);
 }
 
-function extractRecord(chunk) {
+/**
+ * المحرك الرئيسي — يستخرج الحقول الستة من نص السجل الواحد
+ */
+function extractFromText(text) {
   const result = {
     evidence: '',
     claims: '',
@@ -559,12 +562,13 @@ function extractRecord(chunk) {
     endDate: '',
     salary: '',
     reason: '',
-    raw: chunk,
     missing: []
   };
 
+  if (!text) return result;
+
   // === الأسانيد (ما بين "الأسانيد" و "المشفوعات") - تتعدد بالأسطر ===
-  const evidenceMatches = [...chunk.matchAll(/الأسانيد(?![\u0600-\u06FF])\s*([\s\S]+?)\s*المشفوعات(?![\u0600-\u06FF])/g)];
+  const evidenceMatches = [...text.matchAll(/الأسانيد(?![\u0600-\u06FF])\s*([\s\S]+?)\s*المشفوعات(?![\u0600-\u06FF])/g)];
   if (evidenceMatches.length > 0) {
     const allLines = [];
     evidenceMatches.forEach(m => {
@@ -582,7 +586,7 @@ function extractRecord(chunk) {
 
   // === المطالبات (ما بين "الطلب" و "نوع الطلب") ===
   // الشرط: ألا تكون "الطلب" جزءاً من كلمة أطول مثل "الطلبات"
-  const claimMatches = [...chunk.matchAll(/الطلب(?![\u0600-\u06FF])\s*([\s\S]+?)\s*نوع\s+الطلب(?![\u0600-\u06FF])/g)];
+  const claimMatches = [...text.matchAll(/الطلب(?![\u0600-\u06FF])\s*([\s\S]+?)\s*نوع\s+الطلب(?![\u0600-\u06FF])/g)];
   const claimsList = claimMatches.map(m => m[1].trim()).filter(s => s.length > 0);
   if (claimsList.length > 0) {
     result.claims = `${claimsList.length} ${claimsList.join('+')}`;
@@ -593,7 +597,7 @@ function extractRecord(chunk) {
   // الأنماط: "وباشرت العمل بتاريخ ..." / "وباشر العمل بتاريخ ..."
   // ندعم الميلادي (م) والهجري (هـ)
   const startRegex = /وباشر(?:ت|)\s+العمل\s+بتاريخ\s*([٠-٩\d\/]+)\s*(م|هـ)/;
-  const startMatch = chunk.match(startRegex);
+  const startMatch = text.match(startRegex);
   if (startMatch) {
     const cal = startMatch[2] === 'هـ' ? 'h' : 'g';
     result.startDate = parseDate(startMatch[1], cal);
@@ -604,10 +608,10 @@ function extractRecord(chunk) {
   // === آخر يوم عمل ===
   // ندعم الميلادي (م) والهجري (هـ) و"على رأس العمل" للعقود القائمة
   const endRegex = /وآخر\s+يوم\s+عمل\s+كان\s+بتاريخ\s*([٠-٩\d\/]+)\s*(م|هـ)/;
-  const endMatch = chunk.match(endRegex);
+  const endMatch = text.match(endRegex);
   // نمط "على رأس العمل" - يعني العقد لا يزال قائم
   const stillWorkingRegex = /(?:لا\s+(?:أ?زال|يزال|تزال)|ما\s+زال).*?على\s+رأس\s+العمل/;
-  const stillWorkingMatch = chunk.match(stillWorkingRegex);
+  const stillWorkingMatch = text.match(stillWorkingRegex);
 
   if (endMatch) {
     const cal = endMatch[2] === 'هـ' ? 'h' : 'g';
@@ -621,7 +625,7 @@ function extractRecord(chunk) {
   // === مقدار الأجر ===
   // "على أجر فعلي/أساسي قدره (رقم)"
   const salaryRegex = /قدره\s*[\(（]\s*([٠-٩\d,،.]+)\s*[\)）]/;
-  const salaryMatch = chunk.match(salaryRegex);
+  const salaryMatch = text.match(salaryRegex);
   if (salaryMatch) {
     result.salary = parseAmount(salaryMatch[1]);
   } else {
@@ -629,26 +633,26 @@ function extractRecord(chunk) {
   }
 
   // === سبب انتهاء العلاقة ===
-  // ناخذ كل شي بعد "بسبب" حتى نهاية السجل (أو قبل الفواصل الختامية)
-  // الشرط: بعد ذكر "آخر يوم عمل"
-  const firstBsbb = chunk.match(/بسبب\s*([^،]+?)\s*(?:،|$)/);
-  let rawReason = '';
-  if (firstBsbb) {
-    rawReason = firstBsbb[1];
-  }
-  const cleaned = cleanReason(rawReason);
-  if (cleaned) {
-    result.reason = cleaned;
+  // ناخذ كل شي بعد "بسبب" حتى نهاية السجل (أو قبل الفواصل الختامية).
+  // إذا كان العامل ما زال على رأس العمل فالعلاقة لم تنتهِ أصلاً،
+  // فلا معنى لالتقاط أي عبارة بعد "بسبب" (غالباً تخص سبب الدعوى لا سبب الانتهاء)
+  if (result.endDate === 'على رأس العمل') {
+    result.reason = 'على رأس العمل';
   } else {
-    result.missing.push('سبب انتهاء العلاقة');
+    const firstBsbb = text.match(/بسبب\s*([^،]+?)\s*(?:،|$)/);
+    if (firstBsbb) {
+      const cleaned = cleanReason(firstBsbb[1]);
+      if (cleaned) result.reason = cleaned;
+    }
   }
+  if (!result.reason) result.missing.push('سبب انتهاء العلاقة');
 
   return result;
 }
 
 function processText(text) {
   const chunks = splitRecords(text);
-  return chunks.map(extractRecord);
+  return chunks.map(extractFromText);
 }
 
 /* =========================================================
@@ -811,11 +815,9 @@ function render(records) {
       const val = cell.textContent.trim();
       if (val) cell.classList.remove('empty');
       else cell.classList.add('empty');
-      if (field === 'salary') {
-        currentRecords[idx][field] = val === '' ? '' : Number(val.replace(/,/g, ''));
-      } else {
-        currentRecords[idx][field] = val;
-      }
+      // نخزّن كل القيم كنص أثناء التحرير — التحويل إلى رقم يتم عند التصدير
+      // (كذا لا تتحوّل قيمة نصية مثل "غير محدد" إلى NaN)
+      currentRecords[idx][field] = field === 'salary' ? val.replace(/,/g, '') : val;
     });
   });
 
@@ -827,6 +829,33 @@ function render(records) {
       render(currentRecords);
     });
   });
+}
+
+/* =========================================================
+   أدوات مشتركة (الرؤوس + الحافظة)
+   ========================================================= */
+
+const HEADERS = [
+  'نوع المطالبة وعددها', 'البيِّنات في الدعوى', 'أول يوم عمل',
+  'آخر يوم عمل', 'مقدار الأجر', 'سبب انتهاء العلاقة'
+];
+
+function recordsToTsvRows() {
+  return currentRecords.map(r =>
+    [r.claims, r.evidence, r.startDate, r.endDate, r.salary, r.reason].join('\t')
+  );
+}
+
+async function copyToClipboard(text, btnSel) {
+  const btn = $(btnSel);
+  try {
+    await navigator.clipboard.writeText(text);
+    const orig = btn.textContent;
+    btn.textContent = '✓ تم النسخ';
+    setTimeout(() => btn.textContent = orig, 1500);
+  } catch (e) {
+    alert('تعذّر النسخ. انسخ يدوياً.');
+  }
 }
 
 /* =========================================================
@@ -860,21 +889,64 @@ $('#btn-reset').addEventListener('click', () => {
   resultsCard.style.display = 'none';
 });
 
+// يحوّل قيمة الخلية إلى رقم حقيقي إن أمكن، وإلا يبقيها نصاً كما هي
+function asNumberOrText(v) {
+  if (v === '' || v === null || v === undefined) return '';
+  const n = Number(v);
+  return isNaN(n) ? v : n;
+}
+
 $('#btn-export').addEventListener('click', () => {
   if (currentRecords.length === 0) return;
 
   const data = [
-    ['نوع المطالبة وعددها', 'البيِّنات في الدعوى', 'أول يوم عمل', 'آخر يوم عمل', 'مقدار الأجر', 'سبب انتهاء العلاقة'],
-    ...currentRecords.map(r => [r.claims, r.evidence, r.startDate, r.endDate, r.salary, r.reason])
+    HEADERS,
+    ...currentRecords.map(r => [
+      r.claims, r.evidence, r.startDate, r.endDate, asNumberOrText(r.salary), r.reason
+    ])
   ];
+
+  const headerStyle = {
+    fill: { patternType: 'solid', fgColor: { rgb: '366092' } },
+    font: { bold: true, color: { rgb: 'FFFFFF' }, name: 'Calibri', sz: 11 },
+    alignment: { horizontal: 'center', vertical: 'center', readingOrder: 2, wrapText: true },
+    border: {
+      top:    { style: 'thin', color: { rgb: '999999' } },
+      bottom: { style: 'thin', color: { rgb: '999999' } },
+      left:   { style: 'thin', color: { rgb: '999999' } },
+      right:  { style: 'thin', color: { rgb: '999999' } }
+    }
+  };
+
+  const cellStyle = {
+    alignment: { horizontal: 'center', vertical: 'center', wrapText: true, readingOrder: 2 },
+    border: {
+      top:    { style: 'thin', color: { rgb: 'BBBBBB' } },
+      bottom: { style: 'thin', color: { rgb: 'BBBBBB' } },
+      left:   { style: 'thin', color: { rgb: 'BBBBBB' } },
+      right:  { style: 'thin', color: { rgb: 'BBBBBB' } }
+    }
+  };
 
   const ws = XLSX.utils.aoa_to_sheet(data);
   // تعيين اتجاه RTL للورقة
   ws['!dir'] = 'rtl';
-  // عرض الأعمدة
+
+  // تنسيق كل الخلايا — ننشئ الخلايا الفارغة حتى تأخذ الحدود هي أيضاً
+  const range = XLSX.utils.decode_range(ws['!ref']);
+  for (let r = range.s.r; r <= range.e.r; r++) {
+    for (let c = range.s.c; c <= range.e.c; c++) {
+      const addr = XLSX.utils.encode_cell({ r, c });
+      if (!ws[addr]) ws[addr] = { v: '', t: 's' };
+      ws[addr].s = (r === 0) ? headerStyle : cellStyle;
+    }
+  }
+
+  // عرض الأعمدة وارتفاع صف الرؤوس
   ws['!cols'] = [
     { wch: 40 }, { wch: 50 }, { wch: 16 }, { wch: 16 }, { wch: 14 }, { wch: 50 }
   ];
+  ws['!rows'] = [{ hpt: 22 }];
 
   const wb = XLSX.utils.book_new();
   wb.Workbook = { Views: [{ RTL: true }] };
@@ -882,40 +954,28 @@ $('#btn-export').addEventListener('click', () => {
 
   const now = new Date();
   const stamp = `${now.getFullYear()}${String(now.getMonth()+1).padStart(2,'0')}${String(now.getDate()).padStart(2,'0')}`;
-  XLSX.writeFile(wb, `بيانات_العقود_${stamp}.xlsx`);
-});
 
-$('#btn-copy').addEventListener('click', async () => {
-  if (currentRecords.length === 0) return;
-  const header = ['نوع المطالبة وعددها', 'البيِّنات في الدعوى', 'أول يوم عمل', 'آخر يوم عمل', 'مقدار الأجر', 'سبب انتهاء العلاقة'].join('\t');
-  const rows = currentRecords.map(r => [r.claims, r.evidence, r.startDate, r.endDate, r.salary, r.reason].join('\t'));
-  const tsv = [header, ...rows].join('\n');
   try {
-    await navigator.clipboard.writeText(tsv);
-    const btn = $('#btn-copy');
+    XLSX.writeFile(wb, `بيانات_العقود_${stamp}.xlsx`, { bookSST: true });
+    const btn = $('#btn-export');
     const orig = btn.textContent;
-    btn.textContent = '✓ تم النسخ';
-    setTimeout(() => btn.textContent = orig, 1500);
-  } catch (e) {
-    alert('تعذّر النسخ. انسخ يدوياً.');
+    btn.textContent = `✓ تم تحميل ${currentRecords.length} سجل`;
+    setTimeout(() => btn.textContent = orig, 2200);
+  } catch (err) {
+    alert('فشل التحميل: ' + err.message);
+    console.error(err);
   }
 });
 
-$('#btn-copy-data').addEventListener('click', async () => {
+$('#btn-copy').addEventListener('click', () => {
+  if (currentRecords.length === 0) return;
+  copyToClipboard([HEADERS.join('\t'), ...recordsToTsvRows()].join('\n'), '#btn-copy');
+});
+
+$('#btn-copy-data').addEventListener('click', () => {
   if (currentRecords.length === 0) return;
   // البيانات فقط بدون صف الرؤوس
-  const tsv = currentRecords
-    .map(r => [r.claims, r.evidence, r.startDate, r.endDate, r.salary, r.reason].join('\t'))
-    .join('\n');
-  try {
-    await navigator.clipboard.writeText(tsv);
-    const btn = $('#btn-copy-data');
-    const orig = btn.textContent;
-    btn.textContent = '✓ تم النسخ';
-    setTimeout(() => btn.textContent = orig, 1500);
-  } catch (e) {
-    alert('تعذّر النسخ. انسخ يدوياً.');
-  }
+  copyToClipboard(recordsToTsvRows().join('\n'), '#btn-copy-data');
 });
 </script>
 </body>
